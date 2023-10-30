@@ -16,7 +16,7 @@ namespace Snake_
         public int Score { get; private set; }
         public bool GameOver { get; private set; }
 
-
+        private readonly LinkedList<Direction> dirChanges = new LinkedList<Direction>();
         private readonly LinkedList<Position> snakePositions = new LinkedList<Position>();
         private readonly Random random = new Random();
 
@@ -31,7 +31,7 @@ namespace Snake_
             AddFood();
         }
 
-        private void AddSnake ()
+        private void AddSnake()
         {
             int r = Rows / 2;
 
@@ -46,9 +46,9 @@ namespace Snake_
         {
             for (int i = 0; i < Rows; i++)
             {
-                for (int j = 0; j < Cols;j++)
+                for (int j = 0; j < Cols; j++)
                 {
-                    if (Grid[i,j] == GridValue.Empty)
+                    if (Grid[i, j] == GridValue.Empty)
                     {
                         yield return new Position(i, j);
                     }
@@ -88,19 +88,81 @@ namespace Snake_
             Grid[pos.Row, pos.Col] = GridValue.Snake;
         }
 
-        private void RemoveHead()
+        private void RemoveTail()
         {
             Position tail = TailPosition();
             Grid[tail.Row, tail.Col] = GridValue.Empty;
             snakePositions.RemoveLast();
         }
 
-        public void ChangeDirection(Direction direction)
+        private Direction GetLastDirection()
         {
-            Dir = direction;
+            if (dirChanges.Count == 0)
+                return Dir;
+
+            return dirChanges.Last.Value;
         }
 
+        private bool CanChangeDirection(Direction newDirection)
+        {
+            if (dirChanges.Count == 2)
+            {
+                return false;
+            }
 
+            Direction lastDirection = GetLastDirection();
+            return lastDirection != newDirection && lastDirection.Opposite() != newDirection;
+        }
 
+        public void ChangeDirection(Direction direction)
+        {
+            if (CanChangeDirection(direction))
+                dirChanges.AddLast(direction);
+
+        }
+
+        private bool IsOutside(Position pos)
+        {
+            return pos.Row < 0 || pos.Col < 0 || pos.Row >= Rows || pos.Col >= Cols;
+        }
+
+        private GridValue WillHit(Position newHeadPos)
+        {
+            if (IsOutside(newHeadPos))
+                return GridValue.Outside;
+
+            if (newHeadPos == TailPosition())
+                return GridValue.Empty;
+
+            return Grid[newHeadPos.Row, newHeadPos.Col];
+        }
+
+        public void Move()
+        {
+            if(dirChanges.Count > 0)
+            {
+                Dir = dirChanges.First.Value;
+                dirChanges.RemoveFirst();
+            }
+
+            Position newHeadPos = HeadPosition().Translate(Dir);
+            GridValue hit = WillHit(newHeadPos);
+
+            if (hit == GridValue.Outside || hit == GridValue.Snake)
+            {
+                GameOver = true;
+            }
+            else if (hit == GridValue.Empty)
+            {
+                RemoveTail();
+                AddHead(newHeadPos);
+            }
+            else if (hit == GridValue.Food)
+            {
+                AddHead(newHeadPos);
+                Score++;
+                AddFood();
+            }
+        }
     }
 }
